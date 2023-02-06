@@ -69,7 +69,7 @@ if __name__ == "__main__":
 
 
     offb_set_mode = SetModeRequest()
-    offb_set_mode.custom_mode = 'POSITION'
+    offb_set_mode.custom_mode = 'ALTHOLD'
 
     arm_cmd = CommandBoolRequest()
     arm_cmd.value = True

@@ -33,9 +33,6 @@ from time import sleep
 from apscheduler.schedulers.background import BackgroundScheduler
 from pymavlink import mavutil
 
-import rospy
-from nav_msgs.msg import Odometry
-
 
 # Replacement of the standard print() function to flush the output
 def progress(string):
@@ -593,7 +590,6 @@ try:
 
                 # Pose data consists of translation and rotation
                 data = pose.get_pose_data()
-                print(data)
                 
                 # Confidence level value from T265: 0-3, remapped to 0 - 100: 0% - Failed / 33.3% - Low / 66.6% - Medium / 100% - High  
                 current_confidence_level = float(data.tracker_confidence * 100 / 3)  

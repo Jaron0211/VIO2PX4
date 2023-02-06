@@ -33,8 +33,8 @@ from time import sleep
 from apscheduler.schedulers.background import BackgroundScheduler
 from pymavlink import mavutil
 
-#import rospy
-#from nav_msgs.msg import Odometry
+import rospy
+from nav_msgs.msg import Odometry
 
 # Replacement of the standard print() function to flush the output
 def progress(string):

@@ -1,96 +1,156 @@
-#! /usr/bin/env python
+#!/usr/bin/env python3
+
+import sys
+sys.path.append("/usr/local/lib/")
+
+import os
+os.environ["MAVLINK20"] = "1"
 
 import rospy
+
+from sensor_msgs.msg import PointCloud
+from nav_msgs.msg import Odometry, Path
 from geometry_msgs.msg import PoseStamped
-from mavros_msgs.msg import State
-from mavros_msgs.srv import CommandBool, CommandBoolRequest, SetMode, SetModeRequest
 
-current_state = State()
+from visualization_msgs.msg import MarkerArray, Marker
 
-# Odometry function
-def send_vision_position_estimate_message():
-    global current_time_us, H_aeroRef_aeroBody, reset_counter
-    with lock:
-        if H_aeroRef_aeroBody is not None:
-            # Setup angle data
-            rpy_rad = np.array( tf.euler_from_matrix(H_aeroRef_aeroBody, 'sxyz'))
+import numpy as np
+import transformations as tf
+import math as m
+import time
 
-            # Setup covariance data, which is the upper right triangle of the covariance matrix, see here: https://files.gitter.im/ArduPilot/VisionProjects/1DpU/image.png
-            # Attemp #01: following this formula https://github.com/IntelRealSense/realsense-ros/blob/development/realsense2_camera/src/base_realsense_node.cpp#L1406-L1411
-            cov_pose    = linear_accel_cov * pow(10, 3 - int(data.tracker_confidence))
-            cov_twist   = angular_vel_cov  * pow(10, 1 - int(data.tracker_confidence))
-            covariance  = np.array([cov_pose, 0, 0, 0, 0, 0,
-                                       cov_pose, 0, 0, 0, 0,
-                                          cov_pose, 0, 0, 0,
-                                            cov_twist, 0, 0,
-                                               cov_twist, 0,
-                                                  cov_twist])
+#-------------------------------------------------------------#
+# Default configurations for connection to the FCU
+connection_string_default = '/dev/ttyTHS0'
+connection_baudrate_default = 921600
+connection_timeout_sec_default = 1
 
-            # Send the message
-            conn.mav.vision_position_estimate_send(
+# Transformation to convert different camera orientations to NED convention. Replace camera_orientation_default for your configuration.
+#   0: Forward, USB port to the right
+#   1: Downfacing, USB port to the right 
+#   2: Forward, 45 degree tilted down, USB port to the right
+#   3: Downfacing, USB port to the back
+# Important note for downfacing camera: you need to tilt the vehicle's nose up a little - not flat - before you run the script, otherwise the initial yaw will be randomized, read here for more details: https://github.com/IntelRealSense/librealsense/issues/4080. Tilt the vehicle to any other sides and the yaw might not be as stable.
+camera_orientation_default = 0
+
+# https://mavlink.io/en/messages/common.html#VISION_POSITION_ESTIMATE
+enable_msg_vision_position_estimate = True
+vision_position_estimate_msg_hz_default = 30.0
+
+# https://mavlink.io/en/messages/ardupilotmega.html#VISION_POSITION_DELTA
+enable_msg_vision_position_delta = False
+vision_position_delta_msg_hz_default = 10.0
+
+# https://mavlink.io/en/messages/common.html#VISION_SPEED_ESTIMATE
+enable_msg_vision_speed_estimate = False
+vision_speed_estimate_msg_hz_default = 30.0
+
+# https://mavlink.io/en/messages/common.html#STATUSTEXT
+enable_update_tracking_confidence_to_gcs = False
+update_tracking_confidence_to_gcs_hz_default = 1.0
+
+# Monitor user's online input via keyboard, can only be used when runs from terminal
+enable_user_keyboard_input = True
+
+# Default global position for EKF home/ origin
+enable_auto_set_ekf_home = True
+#22.995545011590906, 120.22339680606466
+home_lat = 229955418    # Somewhere random
+home_lon = 1202233069     # Somewhere random
+home_alt = 30       # Somewhere random
+
+# TODO: Taken care of by ArduPilot, so can be removed (once the handling on AP side is confirmed stable)
+# In NED frame, offset from the IMU or the center of gravity to the camera's origin point
+body_offset_enabled = 0
+body_offset_x = 0  # In meters (m)
+body_offset_y = 0  # In meters (m)
+body_offset_z = 0  # In meters (m)
+
+# Global scale factor, position x y z will be scaled up/down by this factor
+scale_factor = 1.0
+
+# Enable using yaw from compass to align north (zero degree is facing north)
+compass_enabled = 0
+
+# pose data confidence: 0x0 - Failed / 0x1 - Low / 0x2 - Medium / 0x3 - High 
+pose_data_confidence_level = ('FAILED', 'Low', 'Medium', 'High')
+
+# lock for thread synchronization
+lock = threading.Lock()
+mavlink_thread_should_exit = False
+
+# default exit code is failure - a graceful termination with a
+# terminate signal is possible.
+exit_code = 1
+#-------------------------------------------------------------#
+
+# Data variables
+data = None
+prev_data = None
+H_aeroRef_aeroBody = None
+V_aeroRef_aeroBody = None
+heading_north_yaw = None
+current_confidence_level = None
+current_time_us = round(time.time_ns/1000)
+
+Odo_data = PoseStamped()
+reset_counter = 1
+
+
+# Rotation matrix
+if camera_orientation == 0:     # Forward, USB port to the right
+    H_aeroRef_T265Ref   = np.array([[0,0,-1,0],[1,0,0,0],[0,-1,0,0],[0,0,0,1]])
+    H_T265body_aeroBody = np.linalg.inv(H_aeroRef_T265Ref)
+elif camera_orientation == 1:   # Downfacing, USB port to the right
+    H_aeroRef_T265Ref   = np.array([[0,0,-1,0],[1,0,0,0],[0,-1,0,0],[0,0,0,1]])
+    H_T265body_aeroBody = np.array([[0,1,0,0],[1,0,0,0],[0,0,-1,0],[0,0,0,1]])
+elif camera_orientation == 2:   # 45degree forward, USB port to the right
+    H_aeroRef_T265Ref   = np.array([[0,0,-1,0],[1,0,0,0],[0,-1,0,0],[0,0,0,1]])
+    H_T265body_aeroBody = (tf.euler_matrix(m.pi/4, 0, 0)).dot(np.linalg.inv(H_aeroRef_T265Ref))
+elif camera_orientation == 3:   # Downfacing, USB port to the back
+    H_aeroRef_T265Ref   = np.array([[0,0,-1,0],[1,0,0,0],[0,-1,0,0],[0,0,0,1]])
+    H_T265body_aeroBody = np.array([[-1,0,0,0],[0,1,0,0],[0,0,-1,0],[0,0,0,1]])
+else:                           # Default is facing forward, USB port to the right
+    H_aeroRef_T265Ref   = np.array([[0,0,-1,0],[1,0,0,0],[0,-1,0,0],[0,0,0,1]])
+    H_T265body_aeroBody = np.linalg.inv(H_aeroRef_T265Ref)
+
+## Function
+def odo_callback(data):
+    global conn, reset_counter
+    current_time_us = data.Header.stamp
+    [POS_X,POS_Y,POS_Z] = data.pose.pose.point
+    rpy_rad = np.array( tf.euler_from_matrix(data.pose.orientation, 'sxyz'))
+    covariance  = data.pose.covariance
+
+    conn.mav.vision_position_estimate_send(
                 current_time_us,            # us Timestamp (UNIX time or time since system boot)
-                H_aeroRef_aeroBody[0][3],   # Global X position
-                H_aeroRef_aeroBody[1][3],   # Global Y position
-                H_aeroRef_aeroBody[2][3],   # Global Z position
+                POS_X,   # Global X position
+                POS_Y,   # Global Y position
+                POS_Z,   # Global Z position
                 rpy_rad[0],	                # Roll angle
                 rpy_rad[1],	                # Pitch angle
                 rpy_rad[2],	                # Yaw angle
                 covariance,                 # Row-major representation of pose 6x6 cross-covariance matrix
                 reset_counter               # Estimate reset counter. Increment every time pose estimate jumps.
             )
-
-def state_cb(msg):
-    global current_state
-    current_state = msg
-
-
-if __name__ == "__main__":
-    rospy.init_node("offb_node_py")
-
-    state_sub = rospy.Subscriber("mavros/state", State, callback = state_cb)
-
-    local_target_pub = rospy.Publisher("mavros/setpoint_position/local", PoseStamped, queue_size=10)
-    
-    rospy.wait_for_service("/mavros/cmd/arming")
-    arming_client = rospy.ServiceProxy("mavros/cmd/arming", CommandBool)    
-
-    rospy.wait_for_service("/mavros/set_mode")
-    set_mode_client = rospy.ServiceProxy("mavros/set_mode", SetMode)
-
-    local_pos_pub = rospy.Publisher("mavros/vision_position_estimate", PoseStamped, queue_size=10)
     
 
-    # Setpoint publishing MUST be faster than 2Hz
-    rate = rospy.Rate(30)
+##-----------------------------------------##
+## Initialize the Mavlink
+conn = mavutil.mavlink_connection(
+    connection_string_default,
+    autoreconnect = True,
+    source_component = 1,
+    baud=connection_baudrate_default,
+    force_connected=True
+)
 
-    # Wait for Flight Controller connection
-    while(not rospy.is_shutdown() and not current_state.connected):
-        rate.sleep()
 
+service_timeout = 30
+rospy.loginfo("waiting for VINS services")
+try:
+    rospy.wait_for_service('/vins_estimator/camera_pose', service_timeout)
+except rospy.ROSException:
+    rospy.loginfo("failed to connect to VINS services")
 
-    offb_set_mode = SetModeRequest()
-    offb_set_mode.custom_mode = 2
-
-    arm_cmd = CommandBoolRequest()
-    arm_cmd.value = True
-
-    last_req = rospy.Time.now()
-
-    pose = PoseStamped()
-    pose.pose.position.x = 0
-    pose.pose.position.y = 0
-    pose.pose.position.z = 2
-    local_target_pub.publish(pose)
-
-    while(not rospy.is_shutdown()):
-        rospy.loginfo(current_state.mode)
-            
-        last_req = rospy.Time.now()
-        pose = PoseStamped()
-        pose.pose.position.x = 0
-        pose.pose.position.y = 0
-        pose.pose.position.z = 2
-        local_pos_pub.publish(pose)
-        
-        rate.sleep()
-
+rospy.Subscriber('/vins_estimator/camera_pose',Odometry,odo_callback)

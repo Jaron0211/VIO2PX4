@@ -78,15 +78,15 @@ if __name__ == "__main__":
 
     while(not rospy.is_shutdown()):
         rospy.loginfo(current_state.mode)
-        # if(current_state.mode != "OFFBOARD" and (rospy.Time.now() - last_req) > rospy.Duration(5.0)):
-        #     if(set_mode_client.call(offb_set_mode).mode_sent == True):
-        #         rospy.loginfo("OFFBOARD enabled")
+        if(current_state.mode != "ALTHOLD" and (rospy.Time.now() - last_req) > rospy.Duration(5.0)):
+            if(set_mode_client.call(offb_set_mode).mode_sent == True):
+                rospy.loginfo("ALTHOLD enabled")
             
-        #     last_req = rospy.Time.now()
-        # else:
-        #     if(not current_state.armed and (rospy.Time.now() - last_req) > rospy.Duration(5.0)):
-        #         if(arming_client.call(arm_cmd).success == True):
-        #             rospy.loginfo("Vehicle armed")
+            last_req = rospy.Time.now()
+        else:
+            if(not current_state.armed and (rospy.Time.now() - last_req) > rospy.Duration(5.0)):
+                if(arming_client.call(arm_cmd).success == True):
+                    rospy.loginfo("Vehicle armed")
             
         last_req = rospy.Time.now()
         pose = PoseStamped()

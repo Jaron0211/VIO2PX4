@@ -33,8 +33,8 @@ from time import sleep
 from apscheduler.schedulers.background import BackgroundScheduler
 from pymavlink import mavutil
 
-import rospy
-from nav_msgs.msg import Odometry
+#import rospy
+#from nav_msgs.msg import Odometry
 
 # Replacement of the standard print() function to flush the output
 def progress(string):
@@ -68,11 +68,11 @@ enable_msg_vision_position_delta = False
 vision_position_delta_msg_hz_default = 10.0
 
 # https://mavlink.io/en/messages/common.html#VISION_SPEED_ESTIMATE
-enable_msg_vision_speed_estimate = True
+enable_msg_vision_speed_estimate = False
 vision_speed_estimate_msg_hz_default = 30.0
 
 # https://mavlink.io/en/messages/common.html#STATUSTEXT
-enable_update_tracking_confidence_to_gcs = True
+enable_update_tracking_confidence_to_gcs = False
 update_tracking_confidence_to_gcs_hz_default = 1.0
 
 # Monitor user's online input via keyboard, can only be used when runs from terminal
@@ -595,7 +595,7 @@ try:
                 print([x for x in data])
                 
                 # Confidence level value from T265: 0-3, remapped to 0 - 100: 0% - Failed / 33.3% - Low / 66.6% - Medium / 100% - High  
-                current_confidence_level = float(data.tracker_confidence * 100 / 3)  
+                current_confidence_level = float(data.tracker_confidence * 100 / 390)  
 
                 # In transformations, Quaternions w+ix+jy+kz are represented as [w, x, y, z]!
                 H_T265Ref_T265body = tf.quaternion_matrix([data.rotation.w, data.rotation.x, data.rotation.y, data.rotation.z]) 

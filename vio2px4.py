@@ -69,16 +69,22 @@ if __name__ == "__main__":
 
 
     offb_set_mode = SetModeRequest()
-    offb_set_mode.custom_mode = 'ALTHOLD'
+    offb_set_mode.custom_mode = 2
 
     arm_cmd = CommandBoolRequest()
     arm_cmd.value = True
 
     last_req = rospy.Time.now()
 
+    pose = PoseStamped()
+    pose.pose.position.x = 0
+    pose.pose.position.y = 0
+    pose.pose.position.z = 2
+    local_target_pub.publish(pose)
+
     while(not rospy.is_shutdown()):
         rospy.loginfo(current_state.mode)
-        if(current_state.mode != "ALTHOLD" and (rospy.Time.now() - last_req) > rospy.Duration(5.0)):
+        if(current_state.mode != 2 and (rospy.Time.now() - last_req) > rospy.Duration(5.0)):
             if(set_mode_client.call(offb_set_mode).mode_sent == True):
                 rospy.loginfo("ALTHOLD enabled")
             
@@ -93,8 +99,7 @@ if __name__ == "__main__":
         pose.pose.position.x = 0
         pose.pose.position.y = 0
         pose.pose.position.z = 2
-        local_target_pub.publish(pose)
-
+        local_pos_pub.publish(pose)
         
         rate.sleep()
 

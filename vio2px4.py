@@ -7,6 +7,7 @@ import os
 os.environ["MAVLINK20"] = "1"
 
 import rospy
+from pymavlink import mavutil
 
 from sensor_msgs.msg import PointCloud
 from nav_msgs.msg import Odometry, Path
@@ -18,12 +19,13 @@ import numpy as np
 import transformations as tf
 import math as m
 import time
+import threading
 
 #-------------------------------------------------------------#
 # Default configurations for connection to the FCU
-connection_string_default = '/dev/ttyTHS0'
-connection_baudrate_default = 921600
-connection_timeout_sec_default = 1
+connection_string = '/dev/ttyTHS0'
+connection_baudrate = 921600
+connection_timeout_sec = 1
 
 # Transformation to convert different camera orientations to NED convention. Replace camera_orientation_default for your configuration.
 #   0: Forward, USB port to the right
@@ -31,23 +33,23 @@ connection_timeout_sec_default = 1
 #   2: Forward, 45 degree tilted down, USB port to the right
 #   3: Downfacing, USB port to the back
 # Important note for downfacing camera: you need to tilt the vehicle's nose up a little - not flat - before you run the script, otherwise the initial yaw will be randomized, read here for more details: https://github.com/IntelRealSense/librealsense/issues/4080. Tilt the vehicle to any other sides and the yaw might not be as stable.
-camera_orientation_default = 0
+camera_orientation = 0
 
 # https://mavlink.io/en/messages/common.html#VISION_POSITION_ESTIMATE
 enable_msg_vision_position_estimate = True
-vision_position_estimate_msg_hz_default = 30.0
+vision_position_estimate_msg_hz = 30.0
 
 # https://mavlink.io/en/messages/ardupilotmega.html#VISION_POSITION_DELTA
 enable_msg_vision_position_delta = False
-vision_position_delta_msg_hz_default = 10.0
+vision_position_delta_msg_hz = 10.0
 
 # https://mavlink.io/en/messages/common.html#VISION_SPEED_ESTIMATE
 enable_msg_vision_speed_estimate = False
-vision_speed_estimate_msg_hz_default = 30.0
+vision_speed_estimate_msg_hz = 30.0
 
 # https://mavlink.io/en/messages/common.html#STATUSTEXT
 enable_update_tracking_confidence_to_gcs = False
-update_tracking_confidence_to_gcs_hz_default = 1.0
+update_tracking_confidence_to_gcs_hz = 1.0
 
 # Monitor user's online input via keyboard, can only be used when runs from terminal
 enable_user_keyboard_input = True
@@ -91,7 +93,7 @@ H_aeroRef_aeroBody = None
 V_aeroRef_aeroBody = None
 heading_north_yaw = None
 current_confidence_level = None
-current_time_us = round(time.time_ns/1000)
+current_time_us = round(time.time_ns()/1000)
 
 Odo_data = PoseStamped()
 reset_counter = 1
@@ -115,13 +117,46 @@ else:                           # Default is facing forward, USB port to the rig
     H_T265body_aeroBody = np.linalg.inv(H_aeroRef_T265Ref)
 
 ## Function
+import math
+ 
+def euler_from_quaternion(x, y, z, w):
+        """
+        Convert a quaternion into euler angles (roll, pitch, yaw)
+        roll is rotation around x in radians (counterclockwise)
+        pitch is rotation around y in radians (counterclockwise)
+        yaw is rotation around z in radians (counterclockwise)
+        """
+        t0 = +2.0 * (w * x + y * z)
+        t1 = +1.0 - 2.0 * (x * x + y * y)
+        roll_x = math.atan2(t0, t1)
+     
+        t2 = +2.0 * (w * y - z * x)
+        t2 = +1.0 if t2 > +1.0 else t2
+        t2 = -1.0 if t2 < -1.0 else t2
+        pitch_y = math.asin(t2)
+     
+        t3 = +2.0 * (w * z + x * y)
+        t4 = +1.0 - 2.0 * (y * y + z * z)
+        yaw_z = math.atan2(t3, t4)
+     
+        return roll_x, pitch_y, yaw_z # in radians
+timer = time.time_ns
+
 def odo_callback(data):
     global conn, reset_counter
-    current_time_us = data.Header.stamp
-    [POS_X,POS_Y,POS_Z] = data.pose.pose.point
-    rpy_rad = np.array( tf.euler_from_matrix(data.pose.orientation, 'sxyz'))
-    covariance  = data.pose.covariance
+    current_time_us = timer()
+    POS_X = data.pose.pose.position.x
+    POS_Y = data.pose.pose.position.y
+    POS_Z = data.pose.pose.position.z
+    
+    ori_x = data.pose.pose.orientation.x
+    ori_y = data.pose.pose.orientation.y
+    ori_z = data.pose.pose.orientation.z
+    ori_w = data.pose.pose.orientation.w
 
+    rpy_rad = euler_from_quaternion(ori_x,ori_y,ori_z,ori_w)
+    covariance  = data.pose.covariance
+    
     conn.mav.vision_position_estimate_send(
                 current_time_us,            # us Timestamp (UNIX time or time since system boot)
                 POS_X,   # Global X position
@@ -138,19 +173,16 @@ def odo_callback(data):
 ##-----------------------------------------##
 ## Initialize the Mavlink
 conn = mavutil.mavlink_connection(
-    connection_string_default,
+    connection_string,
     autoreconnect = True,
     source_component = 1,
-    baud=connection_baudrate_default,
+    baud=connection_baudrate,
     force_connected=True
 )
 
-
-service_timeout = 30
+rospy.init_node('vin2pix')
 rospy.loginfo("waiting for VINS services")
-try:
-    rospy.wait_for_service('/vins_estimator/camera_pose', service_timeout)
-except rospy.ROSException:
-    rospy.loginfo("failed to connect to VINS services")
 
-rospy.Subscriber('/vins_estimator/camera_pose',Odometry,odo_callback)
+rospy.Subscriber('/vins_estimator/odometry',Odometry,odo_callback)
+print('OK')
+rospy.spin()

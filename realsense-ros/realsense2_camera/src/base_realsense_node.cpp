@@ -27,6 +27,8 @@ uint64_t pub_timer_1 = 0;
 uint64_t pub_timer_2 = 0;
 uint64_t now = 0;
 
+ros::Time t(frameSystemTimeSec(frame));
+
 SyncedImuPublisher::SyncedImuPublisher(ros::Publisher imu_publisher, std::size_t waiting_list_size):
             _publisher(imu_publisher), _pause_mode(false),
             _waiting_list_size(waiting_list_size)
@@ -1644,10 +1646,8 @@ void BaseRealSenseNode::frame_callback(rs2::frame frame)
     
     uint64_t pub_timer;
     auto camera_id = frame.get_profile().stream_index();
-   
-    uint8_t time_error ;
 
-    switch (camera_id){
+    if (camera_id){
         case 1:
             pub_timer = pub_timer_1 ;
             break;
@@ -1655,7 +1655,6 @@ void BaseRealSenseNode::frame_callback(rs2::frame frame)
             pub_timer = pub_timer_2 ;
             break;
     }
-    ros::Time t(frameSystemTimeSec(frame));
     now = t.toNSec();
     if ( (now - pub_timer) >= 100){
         try{

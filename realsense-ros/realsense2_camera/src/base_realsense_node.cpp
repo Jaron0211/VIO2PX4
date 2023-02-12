@@ -26,8 +26,7 @@ using namespace ddynamic_reconfigure;
 uint64_t pub_timer_1 = 0;
 uint64_t pub_timer_2 = 0;
 uint64_t now = 0;
-
-ros::Time t(frameSystemTimeSec(frame));
+ros::Time p1_pub_t;
 
 SyncedImuPublisher::SyncedImuPublisher(ros::Publisher imu_publisher, std::size_t waiting_list_size):
             _publisher(imu_publisher), _pause_mode(false),
@@ -1643,11 +1642,10 @@ void BaseRealSenseNode::pose_callback(rs2::frame frame)
 
 void BaseRealSenseNode::frame_callback(rs2::frame frame)
 {
-    
-    uint64_t pub_timer;
+    uint64_t pub_timer = 0;
     auto camera_id = frame.get_profile().stream_index();
 
-    if (camera_id){
+    switch (camera_id){
         case 1:
             pub_timer = pub_timer_1 ;
             break;
@@ -1655,12 +1653,29 @@ void BaseRealSenseNode::frame_callback(rs2::frame frame)
             pub_timer = pub_timer_2 ;
             break;
     }
-    now = t.toNSec();
-    if ( (now - pub_timer) >= 100){
-        try{
+    using namespace std::chrono;
+    try{
+        ros::Time t(frameSystemTimeSec(frame));
+        now = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+        if ( (now - pub_timer) >= 100){
+
+            switch(camera_id){
+                case 1:
+                    pub_timer_1 = now;
+                    p1_pub_t = t;
+                    break;
+                case 2:
+                    pub_timer_2 = now;
+                    break;
+            }
+
+            if (camera_id == 1){
+                ros::Time pub_timer_1(frameSystemTimeSec(frame));
+            }
+
             _synced_imu_publisher->Pause();
             double frame_time = frame.get_timestamp();
-
+            
             // We compute a ROS timestamp which is based on an initial ROS time at point of first frame,
             // and the incremental timestamp from the camera.
             // In sync mode the timestamp is based on ROS time
@@ -1723,7 +1738,7 @@ void BaseRealSenseNode::frame_callback(rs2::frame frame)
 
                     if (f.is<rs2::points>())
                     {
-                        publishPointCloud(f.as<rs2::points>(), t, frameset);
+                        publishPointCloud(f.as<rs2::points>(), p1_pub_t, frameset);
                         continue;
                     }
                     if (stream_type == RS2_STREAM_DEPTH)
@@ -1732,7 +1747,7 @@ void BaseRealSenseNode::frame_callback(rs2::frame frame)
                         sent_depth_frame = true;
                         if (_align_depth && is_color_frame)
                         {
-                            publishFrame(f, t, COLOR,
+                            publishFrame(f, p1_pub_t, COLOR,
                                         _depth_aligned_image,
                                         _depth_aligned_info_publisher,
                                         _depth_aligned_image_publishers,
@@ -1761,7 +1776,7 @@ void BaseRealSenseNode::frame_callback(rs2::frame frame)
                     else
                         frame_to_send = original_depth_frame;
 
-                    publishFrame(frame_to_send, t,
+                    publishFrame(frame_to_send, p1_pub_t,
                                     DEPTH,
                                     _image,
                                     _info_publisher,
@@ -1788,7 +1803,7 @@ void BaseRealSenseNode::frame_callback(rs2::frame frame)
                         clip_depth(frame, _clipping_distance);
                     }
                 }
-                publishFrame(frame, t,
+                publishFrame(frame, p1_pub_t,
                                 sip,
                                 _image,
                                 _info_publisher,
@@ -1799,25 +1814,14 @@ void BaseRealSenseNode::frame_callback(rs2::frame frame)
                                 _encoding);
             }
 
-        
         }
-        catch(const std::exception& ex)
-        {
-            ROS_ERROR_STREAM("An error has occurred during frame callback: " << ex.what());
-        }
-        
-        //now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-        switch(camera_id){
-            case 1:
-                pub_timer_1 = now;
-                break;
-            case 2:
-                pub_timer_2 = now;
-                break;
-        }
-        //test
         _synced_imu_publisher->Resume();
+    }        
+    catch(const std::exception& ex)
+    {
+        ROS_ERROR_STREAM("An error has occurred during frame callback: " << ex.what());
     }
+        
 } // frame_callback
 
 void BaseRealSenseNode::multiple_message_callback(rs2::frame frame, imu_sync_method sync_method)

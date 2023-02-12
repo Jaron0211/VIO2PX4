@@ -23,8 +23,9 @@ using namespace ddynamic_reconfigure;
 
 
 //using namespace std::chrono;
-uint64_t pub_timer_1 = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-uint64_t pub_timer_2 = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+uint64_t pub_timer_1 = 0;
+uint64_t pub_timer_2 = 0;
+uint64_t now = 0;
 
 SyncedImuPublisher::SyncedImuPublisher(ros::Publisher imu_publisher, std::size_t waiting_list_size):
             _publisher(imu_publisher), _pause_mode(false),
@@ -1654,9 +1655,9 @@ void BaseRealSenseNode::frame_callback(rs2::frame frame)
             pub_timer = pub_timer_2 ;
             break;
     }
-
-    uint64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-    if ( now - pub_timer >= 50){
+    ros::Time t(frameSystemTimeSec(frame));
+    now = t.toNSec();
+    if ( (now - pub_timer) >= 100){
         try{
             _synced_imu_publisher->Pause();
             double frame_time = frame.get_timestamp();
@@ -1670,7 +1671,6 @@ void BaseRealSenseNode::frame_callback(rs2::frame frame)
                 _is_initialized_time_base = setBaseTime(frame_time, frame.get_frame_timestamp_domain());
             }
 
-            ros::Time t(frameSystemTimeSec(frame));
             if (frame.is<rs2::frameset>())
             {
                 ROS_DEBUG("Frameset arrived.");
@@ -1816,6 +1816,7 @@ void BaseRealSenseNode::frame_callback(rs2::frame frame)
                 pub_timer_2 = now;
                 break;
         }
+        //test
         _synced_imu_publisher->Resume();
     }
 } // frame_callback

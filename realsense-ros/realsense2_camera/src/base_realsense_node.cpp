@@ -1657,7 +1657,7 @@ void BaseRealSenseNode::frame_callback(rs2::frame frame)
     try{
         ros::Time t(frameSystemTimeSec(frame));
         now = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
-        if ( (now - pub_timer) >= 100){
+        if ( (now - pub_timer) >= (1000/15)){
 
             switch(camera_id){
                 case 1:

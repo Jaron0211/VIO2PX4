@@ -8,7 +8,7 @@ num_of_cam: 2
 imu_topic: "/camera/imu"
 image0_topic: "/camera/fisheye1/image_raw"
 image1_topic: "/camera/fisheye2/image_raw"
-output_path: "/home/dji/output/"
+output_path: "/home/jaron/output/"
 
 cam0_calib: "t265_cam1.yaml"
 cam1_calib: "t265_cam2.yaml"
@@ -24,22 +24,27 @@ body_T_cam0: !!opencv-matrix
    rows: 4
    cols: 4
    dt: d
-   data: [-0.99986902,  0.00862628,  0.01369395,  0.01815562,
-          -0.00853044, -0.99993882,  0.00704142,  0.01514613,
-           0.01375385,  0.00692369,  0.99988144, -0.01037469,
-           0.0,         0.0,         0.0,         1.        ]
-
+   data: [ -9.9994778419428387e-01, -7.0110915732418235e-03,
+       7.4346136345369730e-03, 1.6359351811300740e-02,
+       7.0786969534837067e-03, -9.9993348108469449e-01,
+       9.1063414874834950e-03, 6.4166551964656244e-03,
+       7.3702736980363268e-03, 9.1584933694107175e-03,
+       9.9993089814487601e-01, 3.3311180120125820e-03, 0., 0., 0., 1. ]
 body_T_cam1: !!opencv-matrix
    rows: 4
    cols: 4
    dt: d
-   data: [-0.999941,    0.00852953,  0.00672584, -0.04594271,
-           -0.00849813, -0.99995293,  0.00468248,  0.01508537,
-          0.00676546,  0.00462505,  0.99996642, -0.01048283,
-          0, 0, 0, 1]
+   data: [ -9.9997294035530415e-01, -7.3179311387122784e-03,
+       -7.5262275839588590e-04, -4.6605198147464354e-02,
+       7.3076304120939040e-03, -9.9989031187063904e-01,
+       1.2882653647308524e-02, 7.2365875293144448e-03,
+       -8.4681457688828734e-04, 1.2876805158320001e-02,
+       9.9991673193020780e-01, 4.7114032150622452e-03, 0., 0., 0., 1. ]
 
 #Multiple thread support
 multiple_thread: 1
+
+#Gpu
 use_gpu: 1
 use_gpu_acc_flow: 1
 
@@ -49,7 +54,7 @@ max_cnt: 300           # max feature number in feature tracking
 min_dist: 10           # min distance between two features 
 freq: 0             # frequence (Hz) of publish tracking result. At least 10Hz for good estimation. If set 0, the frequence will be same as raw image 
 F_threshold: 1.0        # ransac threshold (pixel)
-show_track: 1          # publish tracking image as topic
+show_track: 0          # publish tracking image as topic
 flow_back: 1        # perform forward and backward optical flow to improve feature tracking accuracy
 
 #optimization parameters
@@ -67,3 +72,7 @@ g_norm: 9.8100     # gravity magnitude
 #unsynchronization parameters
 estimate_td: 1                      # online estimate time offset between camera and imu
 td: 0.0                             # initial value of time offset. unit: s. readed image clock + td = real image clock (IMU clock)
+
+load_previous_pose_graph: 1 # load and reuse previous pose graph; load from 'pose_graph_save_path'
+pose_graph_save_path: "/home/jaron/output/pose_graph/" # save and load path
+save_image: 1 # save image in pose graph for visualization prupose; you can close this function by setting 0

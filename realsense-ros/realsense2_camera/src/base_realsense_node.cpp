@@ -6,6 +6,8 @@
 #include <mutex>
 #include <chrono>
 
+#include<opencv2/opencv.hpp>
+
 #include <dynamic_reconfigure/IntParameter.h>
 #include <dynamic_reconfigure/Reconfigure.h>
 #include <dynamic_reconfigure/Config.h>
@@ -739,6 +741,7 @@ void BaseRealSenseNode::getParameters()
     }
 
     _pnh.param("align_depth", _align_depth, ALIGN_DEPTH);
+    _pnh.param("output_frequency", _output_frequency, OUTPUT_FREQUENCY);
     _pnh.param("enable_pointcloud", _pointcloud, POINTCLOUD);
     std::string pc_texture_stream("");
     int pc_texture_idx;
@@ -1657,7 +1660,9 @@ void BaseRealSenseNode::frame_callback(rs2::frame frame)
     try{
         ros::Time t(frameSystemTimeSec(frame));
         now = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
-        if ( (now - pub_timer) >= (1000/15)){
+        int time_duration = 1000/(_output_frequency);
+        std::cout << _output_frequency << std::endl;
+        if ( (now - pub_timer) >= time_duration){
 
             switch(camera_id){
                 case 1:
@@ -2418,9 +2423,12 @@ void BaseRealSenseNode::publishFrame(rs2::frame f, const ros::Time& t,
     unsigned int width = 0;
     unsigned int height = 0;
     auto bpp = 1;
+
+    
     if (f.is<rs2::video_frame>())
     {
         auto image = f.as<rs2::video_frame>();
+        
         width = image.get_width();
         height = image.get_height();
         bpp = image.get_bytes_per_pixel();
@@ -2458,6 +2466,10 @@ void BaseRealSenseNode::publishFrame(rs2::frame f, const ros::Time& t,
         info_publisher.publish(cam_info);
 
         sensor_msgs::ImagePtr img;
+        //image = image(cv::Range(100,700), cv::Range(106,742)); //resize
+        //width = image.size().width;
+        //height = image.size().height;
+
         img = cv_bridge::CvImage(std_msgs::Header(), encoding.at(stream.first), image).toImageMsg();
         img->width = width;
         img->height = height;

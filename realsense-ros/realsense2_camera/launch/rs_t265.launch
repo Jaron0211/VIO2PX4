@@ -33,6 +33,8 @@ https://github.com/IntelRealSense/librealsense/blob/master/third-party/libtm/lib
   <arg name="unite_imu_method"      default="copy"/>
 
   <arg name="publish_odom_tf"     default="true"/>
+
+  <arg name="output_frequency"     default="30"/>
   
   <group ns="$(arg camera)">
     <include file="$(find realsense2_camera)/launch/includes/nodelet.launch.xml">
@@ -62,6 +64,7 @@ https://github.com/IntelRealSense/librealsense/blob/master/third-party/libtm/lib
       <arg name="unite_imu_method"         value="$(arg unite_imu_method)"/>
 
       <arg name="publish_odom_tf"          value="$(arg publish_odom_tf)"/>
+      <arg name="output_frequency"         value="$(arg output_frequency)"/>
     </include>
   </group>
 </launch>

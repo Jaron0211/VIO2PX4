@@ -41,7 +41,6 @@ namespace realsense2_camera
     const uint16_t RS_L515_PID      = 0x0B64; // 
     const uint16_t RS_L535_PID      = 0x0b68;
     
-
     const bool ALIGN_DEPTH             = false;
     const bool POINTCLOUD              = false;
     const bool ALLOW_NO_TEXTURE_POINTS = false;
@@ -57,6 +56,7 @@ namespace realsense2_camera
 
     const int IMU_FPS         = 0;
 
+    const int OUTPUT_FREQUENCY = 30;
 
     const bool ENABLE_DEPTH   = true;
     const bool ENABLE_INFRA1  = true;

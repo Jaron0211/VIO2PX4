@@ -1661,7 +1661,7 @@ void BaseRealSenseNode::frame_callback(rs2::frame frame)
         ros::Time t(frameSystemTimeSec(frame));
         now = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
         int time_duration = 1000/(_output_frequency);
-        std::cout << _output_frequency << std::endl;
+        //std::cout << _output_frequency << std::endl;
         if ( (now - pub_timer) >= time_duration){
 
             switch(camera_id){

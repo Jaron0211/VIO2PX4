@@ -45,15 +45,15 @@ body_T_cam1: !!opencv-matrix
 multiple_thread: 1
 
 #Gpu
-use_gpu: 0
-use_gpu_acc_flow: 0
-
+use_gpu: 1
+use_gpu_acc_flow: 1
 
 #feature traker paprameters
-max_cnt: 300           # max feature number in feature tracking
-min_dist: 15           # min distance between two features 
-freq: 0             # frequence (Hz) of publish tracking result. At least 10Hz for good estimation. If set 0, the frequence will be same as raw image 
-F_threshold: 1.0        # ransac threshold (pixel)
+max_cnt: 100           # max feature number in feature tracking
+min_dist: 10           # min distance between two features 
+freq: 0                # frequence (Hz) of publish tracking result. At least 10Hz for good estimation. If set 0, the frequence will be same as raw image
+#max_depth: 10.0         # max estimated depth (m) 
+F_threshold: 0.5       # ransac threshold (pixel)
 show_track: 1          # publish tracking image as topic
 flow_back: 1        # perform forward and backward optical flow to improve feature tracking accuracy
 
@@ -63,10 +63,15 @@ max_num_iterations: 8   # max solver itrations, to guarantee real time
 keyframe_parallax: 1.0 # keyframe selection threshold (pixel)
 
 #imu parameters       The more accurate parameters you provide, the better performance
-acc_n: 1.7261499019137486e-02         # accelerometer measurement noise standard deviation. 
-gyr_n: 2.5525566282650963e-03       # gyroscope measurement noise standard deviation.     
-acc_w: 3.0825482769472466e-04            # accelerometer bias random work noise standard deviation.  
-gyr_w: 3.1197068186773590e-05     # gyroscope bias random work noise standard deviation.     
+#acc_n: 1.7261499019137486e-02         # accelerometer measurement noise standard deviation. 
+#gyr_n: 2.5525566282650963e-03       # gyroscope measurement noise standard deviation.     
+#acc_w: 3.0825482769472466e-04            # accelerometer bias random work noise standard deviation.  
+#gyr_w: 3.1197068186773590e-05     # gyroscope bias random work noise standard deviation. 
+acc_n: 0.24411446019
+gyr_n: 0.03609860202
+acc_w: 0.0000217969
+gyr_w: 0.00000220596
+    
 g_norm: 9.81     # gravity magnitude
 
 #unsynchronization parameters

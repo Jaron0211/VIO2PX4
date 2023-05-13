@@ -2,13 +2,13 @@
 
 #common parameters
 #support: 1 imu 1 cam; 1 imu 2 cam: 2 cam; 
-imu: 0         
+imu: 1         
 num_of_cam: 2  
 
 imu_topic: "/zed2i/zed_node/imu/data"
 image0_topic: "/zed2i/zed_node/left/image_rect_gray"
 image1_topic: "/zed2i/zed_node/right/image_rect_gray"
-output_path: "/home/path/"
+output_path: "/home/jaron/vins_output/"
 
 cam0_calib: "left.yaml"
 cam1_calib: "right.yaml"
@@ -17,42 +17,64 @@ image_height: 360
    
 
 # Extrinsic parameter between IMU and Camera.
-estimate_extrinsic: 0   # 0  Have an accurate extrinsic parameters. We will trust the following imu^R_cam, imu^T_cam, don't change it.
+estimate_extrinsic: 1   # 0  Have an accurate extrinsic parameters. We will trust the following imu^R_cam, imu^T_cam, don't change it.
                         # 1  Have an initial guess about extrinsic parameters. We will optimize around your initial guess.
 
 body_T_cam0: !!opencv-matrix
    rows: 4
    cols: 4
    dt: d
-   data: [-0.006787276409491394, -0.9999517933898574, 0.00709533475965296, 0.017386361968632816,-0.01110598344564856, -0.007019681354753726, -0.9999136868777151, -0.0032683354577748313,0.9999152914175524, -0.006865491248854716, -0.011057803546173195, -0.00790852468926967,0.0, 0.0, 0.0, 1.0]
+   data: [-0.006787276409491394, -0.01110598344564856, 0.9999152914175524, -0.0032683354577748313,-0.9999517933898574, -0.007019681354753726, -0.006865491248854716, 0.017386361968632816,   0.00709533475965296, -0.9999136868777151, -0.011057803546173195, -0.00790852468926967,0.0, 0.0, 0.0, 1.0]
 
 body_T_cam1: !!opencv-matrix
    rows: 4
    cols: 4
    dt: d
-   data: [0.005931787945496814, -0.9999405432157005, 0.009150077882704, -0.10700833958687786,-0.006670991052444786, -0.009189605196679551, -0.9999355224386757, -0.003189076151035816, 0.9999601550912656, 0.0058703653905911035, -0.006725105206098314, -0.008246729320998913,0.0, 0.0, 0.0, 1.0]
+   data: [0.005931787945496814, -0.006670991052444786, 0.9999601550912656, -0.003189076151035816,-0.9999405432157005, -0.009189605196679551, 0.0058703653905911035, -0.10700833958687786,   0.009150077882704, -0.9999355224386757, -0.006725105206098314, -0.008246729320998913,0.0, 0.0, 0.0, 1.0]
 
 #Multiple thread support
 multiple_thread: 1
 
-#feature traker paprameters
-max_cnt: 150            # max feature number in feature tracking
-min_dist: 10            # min distance between two features 
-freq: 10                # frequence (Hz) of publish tracking result. At least 10Hz for good estimation. If set 0, the frequence will be same as raw image 
+#Gpu
+use_gpu: 1
+use_gpu_acc_flow: 1
+
+
+max_cnt: 100           # max feature number in feature tracking
+min_dist: 10            # min distance between two features
+freq: 0                # frequence (Hz) of publish tracking result. At least 10Hz for good estimation. If set 0, the frequence will be same as raw image 
+max_depth: 10.0         # max estimated depth (m)
 F_threshold: 1.0        # ransac threshold (pixel)
-show_track: 1           # publish tracking image as topic
+show_track: 1
 flow_back: 1            # perform forward and backward optical flow to improve feature tracking accuracy
+
+show_image_feat_weight: 1  # publish tracking image as topic
+
+#dynaVINS parameters
+dyna_on:   true # do not change it to false
+regularization_lambda:  200.0
+momentum_on:      false
+momentum_lambda:   0.5
+alternating_converge:   0.9
+margin_feature_thresh:  0.1
+
+BA_threshold: 0.6
 
 #optimization parameters
 max_solver_time: 0.04  # max solver itration time (ms), to guarantee real time
 max_num_iterations: 8   # max solver itrations, to guarantee real time
-keyframe_parallax: 1.0 # keyframe selection threshold (pixel)
+keyframe_parallax: 10.0 # keyframe selection threshold (pixel)
 
 #imu parameters       The more accurate parameters you provide, the better performance
-acc_n: 1.5934064065764194e-02         # accelerometer measurement noise standard deviation. #0.2   0.04
-gyr_n: 1.9235351746643165e-03        # gyroscope measurement noise standard deviation.     #0.05  0.004
-acc_w: 5.9927834893917786e-04     # accelerometer bias random work noise standard deviation.  #0.002
-gyr_w: 2.1926298211094063e-05     # gyroscope bias random work noise standard deviation.     #4.0e-5
+#acc_n: 1.5934064065764194e-02         # accelerometer measurement noise standard deviation. #0.2   0.04
+#gyr_n: 1.9235351746643165e-03        # gyroscope measurement noise standard deviation.     #0.05  0.004
+#acc_w: 5.9927834893917786e-04     # accelerometer bias random work noise standard deviation.  #0.002
+#gyr_w: 2.1926298211094063e-05     # gyroscope bias random work noise standard deviation.     #4.0e-5
+
+acc_n: 0.22534169505        # accelerometer measurement noise standard deviation. #0.2   0.04
+gyr_n: 0.02720289531      # gyroscope measurement noise standard deviation.     #0.05  0.004
+acc_w: 0.00004237537    # accelerometer bias random work noise standard deviation.  #0.002
+gyr_w: 0.00000155042     # gyroscope bias random work noise standard deviation.     #4.0e-5
 g_norm: 9.805        # gravity magnitude
 
 #unsynchronization parameters
